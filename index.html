@@ -3,33 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Static Web App</title>
+    <title>GitHub Copilot Stats</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Welcome to My Web App</h1>
-            <p>Deployed on Digital Ocean Kubernetes</p>
+            <h1>GitHub Copilot Statistics</h1>
+            <p>View your GitHub Copilot usage and statistics</p>
         </header>
         <main>
-            <section class="features">
-                <div class="feature-card">
-                    <h2>Feature 1</h2>
-                    <p>This is a sample feature description.</p>
+            <section class="auth-section">
+                <div class="auth-card">
+                    <h2>GitHub Authentication</h2>
+                    <p>Please enter your GitHub Personal Access Token to view statistics</p>
+                    <input type="password" id="githubToken" placeholder="GitHub Personal Access Token">
+                    <button id="fetchStats">Fetch Statistics</button>
                 </div>
-                <div class="feature-card">
-                    <h2>Feature 2</h2>
-                    <p>Another amazing feature description.</p>
-                </div>
-                <div class="feature-card">
-                    <h2>Feature 3</h2>
-                    <p>One more feature to showcase.</p>
+            </section>
+            <section class="stats-section">
+                <div class="stats-card">
+                    <h2>Copilot Usage Statistics</h2>
+                    <div id="statsContainer">
+                        <div class="stat-item">
+                            <h3>Last Access Time</h3>
+                            <p id="lastAccessTime">-</p>
+                        </div>
+                        <div class="stat-item">
+                            <h3>Total Suggestions</h3>
+                            <p id="totalSuggestions">-</p>
+                        </div>
+                        <div class="stat-item">
+                            <h3>Accepted Suggestions</h3>
+                            <p id="acceptedSuggestions">-</p>
+                        </div>
+                        <div class="stat-item">
+                            <h3>Acceptance Rate</h3>
+                            <p id="acceptanceRate">-</p>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
         <footer>
-            <p>&copy; 2024 My Web App. All rights reserved.</p>
+            <p>&copy; 2024 GitHub Copilot Stats. All rights reserved.</p>
         </footer>
     </div>
     <script src="app.js"></script>
