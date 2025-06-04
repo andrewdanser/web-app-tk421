@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub Copilot Stats</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -42,6 +43,9 @@
                             <p id="acceptanceRate">-</p>
                         </div>
                     </div>
+                    <div class="download-section">
+                        <button id="downloadExcel" class="download-button" disabled>Download Excel Report</button>
+                    </div>
                 </div>
             </section>
         </main>
@@ -51,4 +55,4 @@
     </div>
     <script src="app.js"></script>
 </body>
-</html> 
+</html>

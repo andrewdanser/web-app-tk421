@@ -1,7 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     const tokenInput = document.getElementById('githubToken');
     const fetchButton = document.getElementById('fetchStats');
+    const downloadButton = document.getElementById('downloadExcel');
     const statsContainer = document.getElementById('statsContainer');
+    let currentStats = null;
 
     fetchButton.addEventListener('click', async () => {
         const token = tokenInput.value.trim();
@@ -12,10 +14,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const stats = await fetchCopilotStats(token);
+            currentStats = stats;
             updateStatsDisplay(stats);
+            downloadButton.disabled = false;
         } catch (error) {
             alert('Error fetching statistics: ' + error.message);
+            downloadButton.disabled = true;
         }
+    });
+
+    downloadButton.addEventListener('click', () => {
+        if (!currentStats) return;
+        downloadExcelReport(currentStats);
     });
 
     async function fetchCopilotStats(token) {
@@ -65,5 +75,49 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             lastAccessTime.style.color = '#586069';
         }
+    }
+
+    function downloadExcelReport(stats) {
+        // Create worksheet data
+        const wsData = [
+            ['GitHub Copilot Statistics Report'],
+            ['Generated on', new Date().toLocaleString()],
+            [],
+            ['Metric', 'Value'],
+            ['Last Access Time', new Date(stats.last_access_time).toLocaleString()],
+            ['Days Since Last Access', Math.floor((new Date() - new Date(stats.last_access_time)) / (1000 * 60 * 60 * 24))],
+            ['Total Suggestions', stats.total_suggestions || '0'],
+            ['Accepted Suggestions', stats.accepted_suggestions || '0'],
+            ['Acceptance Rate', stats.total_suggestions ? 
+                `${((stats.accepted_suggestions / stats.total_suggestions) * 100).toFixed(1)}%` : '0%']
+        ];
+
+        // Create worksheet
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Set column widths
+        const wscols = [
+            {wch: 25}, // Column A width
+            {wch: 20}  // Column B width
+        ];
+        ws['!cols'] = wscols;
+
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Copilot Stats');
+
+        // Generate Excel file
+        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `copilot-stats-${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
     }
 }); 
