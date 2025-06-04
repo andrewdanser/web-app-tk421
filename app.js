@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Fetch Copilot usage statistics
-        const response = await fetch('https://api.github.com/user/copilot/usage', {
+        const response = await fetch('https://api.github.com/orgs/medmutual-emu/copilot/usage', {
             headers
         });
 
