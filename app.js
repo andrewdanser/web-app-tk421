@@ -49,9 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateStatsDisplay(stats) {
-        // Update last access time
+        // Update last activity time
         const lastAccessTime = document.getElementById('lastAccessTime');
-        const lastAccess = new Date(stats.last_access_time);
+        const lastAccess = new Date(stats.last_activity_at);
         const daysSinceLastAccess = Math.floor((new Date() - lastAccess) / (1000 * 60 * 60 * 24));
         lastAccessTime.textContent = `${daysSinceLastAccess} days ago`;
 
@@ -69,12 +69,29 @@ document.addEventListener('DOMContentLoaded', () => {
             ((stats.accepted_suggestions / stats.total_suggestions) * 100).toFixed(1) : '0';
         acceptanceRate.textContent = `${rate}%`;
 
-        // Add warning if last access was more than 30 days ago
+        // Update user statistics
+        const totalUsers = document.getElementById('totalUsers');
+        totalUsers.textContent = stats.total_users || '0';
+
+        const activeUsers = document.getElementById('activeUsers');
+        activeUsers.textContent = stats.active_users || '0';
+
+        // Update repository statistics
+        const totalRepos = document.getElementById('totalRepos');
+        totalRepos.textContent = stats.total_repositories || '0';
+
+        const activeRepos = document.getElementById('activeRepos');
+        activeRepos.textContent = stats.active_repositories || '0';
+
+        // Add warning if last activity was more than 30 days ago
         if (daysSinceLastAccess > 30) {
             lastAccessTime.style.color = '#d73a49';
         } else {
             lastAccessTime.style.color = '#586069';
         }
+
+        // Log the full stats object for debugging
+        console.log('Full Copilot Metrics:', stats);
     }
 
     function downloadExcelReport(stats) {
@@ -84,12 +101,16 @@ document.addEventListener('DOMContentLoaded', () => {
             ['Generated on', new Date().toLocaleString()],
             [],
             ['Metric', 'Value'],
-            ['Last Access Time', new Date(stats.last_access_time).toLocaleString()],
-            ['Days Since Last Access', Math.floor((new Date() - new Date(stats.last_access_time)) / (1000 * 60 * 60 * 24))],
+            ['Last Activity', new Date(stats.last_activity_at).toLocaleString()],
+            ['Days Since Last Activity', Math.floor((new Date() - new Date(stats.last_activity_at)) / (1000 * 60 * 60 * 24))],
             ['Total Suggestions', stats.total_suggestions || '0'],
             ['Accepted Suggestions', stats.accepted_suggestions || '0'],
             ['Acceptance Rate', stats.total_suggestions ? 
-                `${((stats.accepted_suggestions / stats.total_suggestions) * 100).toFixed(1)}%` : '0%']
+                `${((stats.accepted_suggestions / stats.total_suggestions) * 100).toFixed(1)}%` : '0%'],
+            ['Total Users', stats.total_users || '0'],
+            ['Active Users', stats.active_users || '0'],
+            ['Total Repositories', stats.total_repositories || '0'],
+            ['Active Repositories', stats.active_repositories || '0']
         ];
 
         // Create worksheet
