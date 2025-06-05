@@ -49,68 +49,130 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateStatsDisplay(stats) {
-        // Update last activity time
-        const lastAccessTime = document.getElementById('lastAccessTime');
-        const lastAccess = new Date(stats.last_activity_at);
-        const daysSinceLastAccess = Math.floor((new Date() - lastAccess) / (1000 * 60 * 60 * 24));
-        lastAccessTime.textContent = `${daysSinceLastAccess} days ago`;
+        // Get the most recent day's stats
+        const latestStats = stats[0];
 
-        // Update total suggestions
-        const totalSuggestions = document.getElementById('totalSuggestions');
-        totalSuggestions.textContent = stats.total_suggestions || '0';
+        // User Engagement
+        document.getElementById('totalActiveUsers').textContent = latestStats.total_active_users || '0';
+        document.getElementById('totalEngagedUsers').textContent = latestStats.total_engaged_users || '0';
 
-        // Update accepted suggestions
-        const acceptedSuggestions = document.getElementById('acceptedSuggestions');
-        acceptedSuggestions.textContent = stats.accepted_suggestions || '0';
+        // IDE Code Completions
+        if (latestStats.copilot_ide_code_completions) {
+            document.getElementById('ideCodeCompletionsUsers').textContent = 
+                latestStats.copilot_ide_code_completions.total_engaged_users || '0';
 
-        // Update acceptance rate
-        const acceptanceRate = document.getElementById('acceptanceRate');
-        const rate = stats.total_suggestions ? 
-            ((stats.accepted_suggestions / stats.total_suggestions) * 100).toFixed(1) : '0';
-        acceptanceRate.textContent = `${rate}%`;
+            // Top Languages
+            const languages = latestStats.copilot_ide_code_completions.languages || [];
+            const topLanguages = languages
+                .sort((a, b) => b.total_engaged_users - a.total_engaged_users)
+                .slice(0, 3)
+                .map(lang => `${lang.name}: ${lang.total_engaged_users} users`)
+                .join('<br>');
+            document.getElementById('topLanguages').innerHTML = topLanguages || 'No data';
 
-        // Update user statistics
-        const totalUsers = document.getElementById('totalUsers');
-        totalUsers.textContent = stats.total_users || '0';
-
-        const activeUsers = document.getElementById('activeUsers');
-        activeUsers.textContent = stats.active_users || '0';
-
-        // Update repository statistics
-        const totalRepos = document.getElementById('totalRepos');
-        totalRepos.textContent = stats.total_repositories || '0';
-
-        const activeRepos = document.getElementById('activeRepos');
-        activeRepos.textContent = stats.active_repositories || '0';
-
-        // Add warning if last activity was more than 30 days ago
-        if (daysSinceLastAccess > 30) {
-            lastAccessTime.style.color = '#d73a49';
-        } else {
-            lastAccessTime.style.color = '#586069';
+            // Top Editors
+            const editors = latestStats.copilot_ide_code_completions.editors || [];
+            const topEditors = editors
+                .sort((a, b) => b.total_engaged_users - a.total_engaged_users)
+                .slice(0, 3)
+                .map(editor => `${editor.name}: ${editor.total_engaged_users} users`)
+                .join('<br>');
+            document.getElementById('topEditors').innerHTML = topEditors || 'No data';
         }
 
-        // Log the full stats object for debugging
-        console.log('Full Copilot Metrics:', stats);
+        // IDE Chat
+        if (latestStats.copilot_ide_chat) {
+            document.getElementById('ideChatUsers').textContent = 
+                latestStats.copilot_ide_chat.total_engaged_users || '0';
+
+            // Calculate total chats and insertions across all editors and models
+            let totalChats = 0;
+            let totalInsertions = 0;
+            latestStats.copilot_ide_chat.editors?.forEach(editor => {
+                editor.models?.forEach(model => {
+                    totalChats += model.total_chats || 0;
+                    totalInsertions += model.total_chat_insertion_events || 0;
+                });
+            });
+            document.getElementById('totalChats').textContent = totalChats;
+            document.getElementById('chatInsertions').textContent = totalInsertions;
+        }
+
+        // GitHub.com Chat
+        if (latestStats.copilot_dotcom_chat) {
+            document.getElementById('dotcomChatUsers').textContent = 
+                latestStats.copilot_dotcom_chat.total_engaged_users || '0';
+
+            // Calculate total chats across all models
+            const totalChats = latestStats.copilot_dotcom_chat.models?.reduce(
+                (sum, model) => sum + (model.total_chats || 0), 0
+            ) || 0;
+            document.getElementById('dotcomTotalChats').textContent = totalChats;
+        }
+
+        // Pull Requests
+        if (latestStats.copilot_dotcom_pull_requests) {
+            document.getElementById('prEngagedUsers').textContent = 
+                latestStats.copilot_dotcom_pull_requests.total_engaged_users || '0';
+
+            // Calculate total PR summaries across all repositories and models
+            let totalSummaries = 0;
+            latestStats.copilot_dotcom_pull_requests.repositories?.forEach(repo => {
+                repo.models?.forEach(model => {
+                    totalSummaries += model.total_pr_summaries_created || 0;
+                });
+            });
+            document.getElementById('prSummaries').textContent = totalSummaries;
+        }
     }
 
     function downloadExcelReport(stats) {
-        // Create worksheet data
+        const latestStats = stats[0];
         const wsData = [
             ['GitHub Copilot Statistics Report'],
             ['Generated on', new Date().toLocaleString()],
+            ['Date', latestStats.date],
             [],
-            ['Metric', 'Value'],
-            ['Last Activity', new Date(stats.last_activity_at).toLocaleString()],
-            ['Days Since Last Activity', Math.floor((new Date() - new Date(stats.last_activity_at)) / (1000 * 60 * 60 * 24))],
-            ['Total Suggestions', stats.total_suggestions || '0'],
-            ['Accepted Suggestions', stats.accepted_suggestions || '0'],
-            ['Acceptance Rate', stats.total_suggestions ? 
-                `${((stats.accepted_suggestions / stats.total_suggestions) * 100).toFixed(1)}%` : '0%'],
-            ['Total Users', stats.total_users || '0'],
-            ['Active Users', stats.active_users || '0'],
-            ['Total Repositories', stats.total_repositories || '0'],
-            ['Active Repositories', stats.active_repositories || '0']
+            ['User Engagement'],
+            ['Total Active Users', latestStats.total_active_users || '0'],
+            ['Total Engaged Users', latestStats.total_engaged_users || '0'],
+            [],
+            ['IDE Code Completions'],
+            ['Total Engaged Users', latestStats.copilot_ide_code_completions?.total_engaged_users || '0'],
+            [],
+            ['Top Languages'],
+            ...(latestStats.copilot_ide_code_completions?.languages || [])
+                .sort((a, b) => b.total_engaged_users - a.total_engaged_users)
+                .slice(0, 5)
+                .map(lang => [lang.name, lang.total_engaged_users]),
+            [],
+            ['Top Editors'],
+            ...(latestStats.copilot_ide_code_completions?.editors || [])
+                .sort((a, b) => b.total_engaged_users - a.total_engaged_users)
+                .slice(0, 5)
+                .map(editor => [editor.name, editor.total_engaged_users]),
+            [],
+            ['IDE Chat'],
+            ['Total Engaged Users', latestStats.copilot_ide_chat?.total_engaged_users || '0'],
+            ['Total Chats', latestStats.copilot_ide_chat?.editors?.reduce(
+                (sum, editor) => sum + (editor.models?.reduce(
+                    (modelSum, model) => modelSum + (model.total_chats || 0), 0
+                ) || 0), 0
+            ) || '0'],
+            [],
+            ['GitHub.com Chat'],
+            ['Total Engaged Users', latestStats.copilot_dotcom_chat?.total_engaged_users || '0'],
+            ['Total Chats', latestStats.copilot_dotcom_chat?.models?.reduce(
+                (sum, model) => sum + (model.total_chats || 0), 0
+            ) || '0'],
+            [],
+            ['Pull Requests'],
+            ['Total Engaged Users', latestStats.copilot_dotcom_pull_requests?.total_engaged_users || '0'],
+            ['Total PR Summaries', latestStats.copilot_dotcom_pull_requests?.repositories?.reduce(
+                (sum, repo) => sum + (repo.models?.reduce(
+                    (modelSum, model) => modelSum + (model.total_pr_summaries_created || 0), 0
+                ) || 0), 0
+            ) || '0']
         ];
 
         // Create worksheet
@@ -118,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Set column widths
         const wscols = [
-            {wch: 25}, // Column A width
+            {wch: 30}, // Column A width
             {wch: 20}  // Column B width
         ];
         ws['!cols'] = wscols;
@@ -135,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `copilot-stats-${new Date().toISOString().split('T')[0]}.xlsx`;
+        a.download = `copilot-stats-${latestStats.date}.xlsx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
