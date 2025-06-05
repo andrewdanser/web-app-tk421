@@ -154,4 +154,57 @@ footer {
 .download-button:disabled {
     background-color: #ccc;
     cursor: not-allowed;
+}
+
+.user-activity {
+    grid-column: 1 / -1;
+}
+
+.active-users-list {
+    max-height: 300px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 0.5rem;
+}
+
+.user-activity-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e1e4e8;
+}
+
+.user-activity-item:last-child {
+    border-bottom: none;
+}
+
+.user-activity-item .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.user-activity-item .user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+}
+
+.user-activity-item .user-login {
+    font-weight: 500;
+    color: #24292e;
+}
+
+.user-activity-item .last-activity {
+    color: #586069;
+    font-size: 0.9rem;
+}
+
+.user-activity-item .editor-info {
+    color: #586069;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
 } 

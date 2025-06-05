@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadButton = document.getElementById('downloadExcel');
     const statsContainer = document.getElementById('statsContainer');
     let currentStats = null;
+    let currentSeats = null;
 
     fetchButton.addEventListener('click', async () => {
         const token = tokenInput.value.trim();
@@ -13,9 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const stats = await fetchCopilotStats(token);
+            const [stats, seats] = await Promise.all([
+                fetchCopilotStats(token),
+                fetchCopilotSeats(token)
+            ]);
             currentStats = stats;
+            currentSeats = seats;
             updateStatsDisplay(stats);
+            updateSeatsDisplay(seats);
             downloadButton.disabled = false;
         } catch (error) {
             alert('Error fetching statistics: ' + error.message);
@@ -24,8 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     downloadButton.addEventListener('click', () => {
-        if (!currentStats) return;
-        downloadExcelReport(currentStats);
+        if (!currentStats || !currentSeats) return;
+        downloadExcelReport(currentStats, currentSeats);
     });
 
     async function fetchCopilotStats(token) {
@@ -35,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'X-GitHub-Api-Version': '2022-11-28'
         };
 
-        // Fetch Copilot usage statistics
         const response = await fetch('https://api.github.com/orgs/MedMutual/copilot/metrics', {
             headers
         });
@@ -44,8 +49,25 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error(`GitHub API error: ${response.status}`);
         }
 
-        const data = await response.json();
-        return data;
+        return await response.json();
+    }
+
+    async function fetchCopilotSeats(token) {
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28'
+        };
+
+        const response = await fetch('https://api.github.com/orgs/MedMutual/copilot/billing/seats', {
+            headers
+        });
+
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        return await response.json();
     }
 
     function updateStatsDisplay(stats) {
@@ -126,7 +148,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function downloadExcelReport(stats) {
+    function updateSeatsDisplay(seats) {
+        // Update total seats
+        document.getElementById('totalSeats').textContent = seats.total_seats || '0';
+
+        // Sort users by last activity
+        const activeUsers = seats.seats
+            .filter(seat => seat.assignee && seat.last_activity_at)
+            .sort((a, b) => new Date(b.last_activity_at) - new Date(a.last_activity_at));
+
+        // Create HTML for active users list
+        const activeUsersList = document.getElementById('activeUsersList');
+        if (activeUsers.length === 0) {
+            activeUsersList.innerHTML = 'No active users found';
+            return;
+        }
+
+        activeUsersList.innerHTML = activeUsers.map(seat => {
+            const user = seat.assignee;
+            const lastActivity = new Date(seat.last_activity_at);
+            const daysAgo = Math.floor((new Date() - lastActivity) / (1000 * 60 * 60 * 24));
+            
+            return `
+                <div class="user-activity-item">
+                    <div class="user-info">
+                        <img src="${user.avatar_url}" alt="${user.login}" class="user-avatar">
+                        <div>
+                            <div class="user-login">${user.login}</div>
+                            <div class="editor-info">${seat.last_activity_editor || 'No editor info'}</div>
+                        </div>
+                    </div>
+                    <div class="last-activity">
+                        ${daysAgo === 0 ? 'Today' : 
+                          daysAgo === 1 ? 'Yesterday' : 
+                          `${daysAgo} days ago`}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function downloadExcelReport(stats, seats) {
         const latestStats = stats[0];
         const wsData = [
             ['GitHub Copilot Statistics Report'],
@@ -136,6 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ['User Engagement'],
             ['Total Active Users', latestStats.total_active_users || '0'],
             ['Total Engaged Users', latestStats.total_engaged_users || '0'],
+            ['Total Seats', seats.total_seats || '0'],
             [],
             ['IDE Code Completions'],
             ['Total Engaged Users', latestStats.copilot_ide_code_completions?.total_engaged_users || '0'],
@@ -172,7 +235,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 (sum, repo) => sum + (repo.models?.reduce(
                     (modelSum, model) => modelSum + (model.total_pr_summaries_created || 0), 0
                 ) || 0), 0
-            ) || '0']
+            ) || '0'],
+            [],
+            ['Most Active Users'],
+            ['Username', 'Last Activity', 'Last Editor'],
+            ...seats.seats
+                .filter(seat => seat.assignee && seat.last_activity_at)
+                .sort((a, b) => new Date(b.last_activity_at) - new Date(a.last_activity_at))
+                .slice(0, 10)
+                .map(seat => [
+                    seat.assignee.login,
+                    new Date(seat.last_activity_at).toLocaleString(),
+                    seat.last_activity_editor || 'N/A'
+                ])
         ];
 
         // Create worksheet
@@ -181,7 +256,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set column widths
         const wscols = [
             {wch: 30}, // Column A width
-            {wch: 20}  // Column B width
+            {wch: 20}, // Column B width
+            {wch: 20}  // Column C width
         ];
         ws['!cols'] = wscols;
 
