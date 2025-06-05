@@ -242,16 +242,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 ) || 0), 0
             ) || '0'],
             [],
-            ['Most Active Users'],
-            ['Username', 'Last Activity', 'Last Editor'],
+            ['User Activity'],
+            ['Username', 'Last Activity', 'Last Editor', 'Assignment Date'],
             ...seats.seats
-                .filter(seat => seat.assignee && seat.last_activity_at)
-                .sort((a, b) => new Date(b.last_activity_at) - new Date(a.last_activity_at))
-                .slice(0, 10)
+                .filter(seat => seat.assignee) // Include all assigned seats
+                .sort((a, b) => {
+                    // Sort by last activity, with null/undefined dates at the end
+                    const dateA = a.last_activity_at ? new Date(a.last_activity_at) : new Date(0);
+                    const dateB = b.last_activity_at ? new Date(b.last_activity_at) : new Date(0);
+                    return dateB - dateA;
+                })
                 .map(seat => [
                     seat.assignee.login,
-                    new Date(seat.last_activity_at).toLocaleString(),
-                    seat.last_activity_editor || 'N/A'
+                    seat.last_activity_at ? new Date(seat.last_activity_at).toLocaleString() : 'Never',
+                    seat.last_activity_editor || 'N/A',
+                    seat.assignment_date ? new Date(seat.assignment_date).toLocaleDateString() : 'N/A'
                 ])
         ];
 
@@ -261,8 +266,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set column widths
         const wscols = [
             {wch: 30}, // Column A width
-            {wch: 20}, // Column B width
-            {wch: 20}  // Column C width
+            {wch: 25}, // Column B width
+            {wch: 20}, // Column C width
+            {wch: 15}  // Column D width
         ];
         ws['!cols'] = wscols;
 
