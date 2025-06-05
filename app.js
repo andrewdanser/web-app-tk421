@@ -77,34 +77,80 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Get the most recent day's stats
-        const mostRecentStats = stats[0];
-        console.log('Most recent stats:', mostRecentStats);
+        const latestStats = stats[0];
 
         // User Engagement
-        document.getElementById('totalActiveUsers').textContent = mostRecentStats.total_active_users || '0';
-        document.getElementById('totalEngagedUsers').textContent = mostRecentStats.total_engaged_users || '0';
+        document.getElementById('totalActiveUsers').textContent = latestStats.total_active_users || '0';
+        document.getElementById('totalEngagedUsers').textContent = latestStats.total_engaged_users || '0';
 
         // IDE Code Completions
-        document.getElementById('ideCodeCompletionsUsers').textContent = mostRecentStats.ide_code_completions?.total_engaged_users || '0';
-        
-        // Top Languages
-        const topLanguages = mostRecentStats.ide_code_completions?.top_languages || [];
-        const languagesList = topLanguages.slice(0, 3).map(lang => 
-            `${lang.language}: ${lang.total_engaged_users} users`
-        ).join('<br>');
-        document.getElementById('topLanguages').innerHTML = languagesList || 'No data';
+        if (latestStats.copilot_ide_code_completions) {
+            document.getElementById('ideCodeCompletionsUsers').textContent = 
+                latestStats.copilot_ide_code_completions.total_engaged_users || '0';
+            
+            // Top Languages
+            const languages = latestStats.copilot_ide_code_completions.languages || [];
+            const topLanguages = languages
+                .sort((a, b) => b.total_engaged_users - a.total_engaged_users)
+                .slice(0, 3)
+                .map(lang => `${lang.name}: ${lang.total_engaged_users} users`)
+                .join('<br>');
+            document.getElementById('topLanguages').innerHTML = topLanguages || 'No data';
 
-        // Top Editors
-        const topEditors = mostRecentStats.ide_code_completions?.top_editors || [];
-        const editorsList = topEditors.slice(0, 3).map(editor => 
-            `${editor.editor}: ${editor.total_engaged_users} users`
-        ).join('<br>');
-        document.getElementById('topEditors').innerHTML = editorsList || 'No data';
+            // Top Editors
+            const editors = latestStats.copilot_ide_code_completions.editors || [];
+            const topEditors = editors
+                .sort((a, b) => b.total_engaged_users - a.total_engaged_users)
+                .slice(0, 3)
+                .map(editor => `${editor.name}: ${editor.total_engaged_users} users`)
+                .join('<br>');
+            document.getElementById('topEditors').innerHTML = topEditors || 'No data';
+        }
 
         // IDE Chat
-        document.getElementById('ideChatUsers').textContent = mostRecentStats.ide_chat?.total_engaged_users || '0';
-        document.getElementById('totalChats').textContent = mostRecentStats.ide_chat?.total_chats || '0';
-        document.getElementById('chatInsertions').textContent = mostRecentStats.ide_chat?.total_chat_insertions || '0';
+        if (latestStats.copilot_ide_chat) {
+            document.getElementById('ideChatUsers').textContent = 
+                latestStats.copilot_ide_chat.total_engaged_users || '0';
+
+            // Calculate total chats and insertions across all editors and models
+            let totalChats = 0;
+            let totalInsertions = 0;
+            latestStats.copilot_ide_chat.editors?.forEach(editor => {
+                editor.models?.forEach(model => {
+                    totalChats += model.total_chats || 0;
+                    totalInsertions += model.total_chat_insertion_events || 0;
+                });
+            });
+            document.getElementById('totalChats').textContent = totalChats;
+            document.getElementById('chatInsertions').textContent = totalInsertions;
+        }
+
+        // GitHub.com Chat
+        if (latestStats.copilot_dotcom_chat) {
+            document.getElementById('dotcomChatUsers').textContent = 
+                latestStats.copilot_dotcom_chat.total_engaged_users || '0';
+
+            // Calculate total chats across all models
+            const totalChats = latestStats.copilot_dotcom_chat.models?.reduce(
+                (sum, model) => sum + (model.total_chats || 0), 0
+            ) || 0;
+            document.getElementById('dotcomTotalChats').textContent = totalChats;
+        }
+
+        // Pull Requests
+        if (latestStats.copilot_dotcom_pull_requests) {
+            document.getElementById('prEngagedUsers').textContent = 
+                latestStats.copilot_dotcom_pull_requests.total_engaged_users || '0';
+
+            // Calculate total PR summaries across all repositories and models
+            let totalSummaries = 0;
+            latestStats.copilot_dotcom_pull_requests.repositories?.forEach(repo => {
+                repo.models?.forEach(model => {
+                    totalSummaries += model.total_pr_summaries_created || 0;
+                });
+            });
+            document.getElementById('prSummaries').textContent = totalSummaries;
+        }
     }
 
     function updateSeatsDisplay(seats) {
@@ -148,71 +194,94 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function downloadExcelReport(stats, seats) {
-        if (!stats || !stats.length || !seats) {
-            console.error('No data available for report');
-            return;
-        }
-
-        const mostRecentStats = stats[0];
-        const workbook = XLSX.utils.book_new();
-
-        // Overview Sheet
-        const overviewData = [
-            ['GitHub Copilot Usage Report', ''],
-            ['Generated Date', new Date().toLocaleString()],
-            [''],
+        const latestStats = stats[0];
+        const wsData = [
+            ['GitHub Copilot Statistics Report'],
+            ['Generated on', new Date().toLocaleString()],
+            ['Date', latestStats.date],
+            [],
             ['User Engagement'],
-            ['Total Active Users', mostRecentStats.total_active_users || 0],
-            ['Total Engaged Users', mostRecentStats.total_engaged_users || 0],
-            [''],
+            ['Total Active Users', latestStats.total_active_users || '0'],
+            ['Total Engaged Users', latestStats.total_engaged_users || '0'],
+            ['Total Seats', seats.total_seats || '0'],
+            [],
             ['IDE Code Completions'],
-            ['Engaged Users', mostRecentStats.ide_code_completions?.total_engaged_users || 0],
-            [''],
+            ['Total Engaged Users', latestStats.copilot_ide_code_completions?.total_engaged_users || '0'],
+            [],
             ['Top Languages'],
-            ...(mostRecentStats.ide_code_completions?.top_languages || []).map(lang => 
-                [lang.language, lang.total_engaged_users]
-            ),
-            [''],
+            ...(latestStats.copilot_ide_code_completions?.languages || [])
+                .sort((a, b) => b.total_engaged_users - a.total_engaged_users)
+                .slice(0, 5)
+                .map(lang => [lang.name, lang.total_engaged_users]),
+            [],
             ['Top Editors'],
-            ...(mostRecentStats.ide_code_completions?.top_editors || []).map(editor => 
-                [editor.editor, editor.total_engaged_users]
-            ),
-            [''],
+            ...(latestStats.copilot_ide_code_completions?.editors || [])
+                .sort((a, b) => b.total_engaged_users - a.total_engaged_users)
+                .slice(0, 5)
+                .map(editor => [editor.name, editor.total_engaged_users]),
+            [],
             ['IDE Chat'],
-            ['Engaged Users', mostRecentStats.ide_chat?.total_engaged_users || 0],
-            ['Total Chats', mostRecentStats.ide_chat?.total_chats || 0],
-            ['Code Insertions', mostRecentStats.ide_chat?.total_chat_insertions || 0],
-            [''],
-            ['User Activity'],
-            ['Total Seats', seats.total_seats || 0],
-            [''],
+            ['Total Engaged Users', latestStats.copilot_ide_chat?.total_engaged_users || '0'],
+            ['Total Chats', latestStats.copilot_ide_chat?.editors?.reduce(
+                (sum, editor) => sum + (editor.models?.reduce(
+                    (modelSum, model) => modelSum + (model.total_chats || 0), 0
+                ) || 0), 0
+            ) || '0'],
+            [],
+            ['GitHub.com Chat'],
+            ['Total Engaged Users', latestStats.copilot_dotcom_chat?.total_engaged_users || '0'],
+            ['Total Chats', latestStats.copilot_dotcom_chat?.models?.reduce(
+                (sum, model) => sum + (model.total_chats || 0), 0
+            ) || '0'],
+            [],
+            ['Pull Requests'],
+            ['Total Engaged Users', latestStats.copilot_dotcom_pull_requests?.total_engaged_users || '0'],
+            ['Total PR Summaries', latestStats.copilot_dotcom_pull_requests?.repositories?.reduce(
+                (sum, repo) => sum + (repo.models?.reduce(
+                    (modelSum, model) => modelSum + (model.total_pr_summaries_created || 0), 0
+                ) || 0), 0
+            ) || '0'],
+            [],
             ['Most Active Users'],
-            ['Username', 'Last Editor', 'Last Activity'],
-            ...seats.seats.slice(0, 10).map(seat => [
-                seat.assignee?.login || 'Unassigned',
-                seat.last_activity_editor || 'None',
-                seat.last_activity_at ? new Date(seat.last_activity_at).toLocaleString() : 'Never'
-            ])
+            ['Username', 'Last Activity', 'Last Editor'],
+            ...seats.seats
+                .filter(seat => seat.assignee && seat.last_activity_at)
+                .sort((a, b) => new Date(b.last_activity_at) - new Date(a.last_activity_at))
+                .slice(0, 10)
+                .map(seat => [
+                    seat.assignee.login,
+                    new Date(seat.last_activity_at).toLocaleString(),
+                    seat.last_activity_editor || 'N/A'
+                ])
         ];
 
-        const overviewSheet = XLSX.utils.aoa_to_sheet(overviewData);
-        XLSX.utils.book_append_sheet(workbook, overviewSheet, 'Overview');
+        // Create worksheet
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-        // Historical Data Sheet
-        const historicalData = stats.map(day => ({
-            'Date': new Date(day.date).toLocaleDateString(),
-            'Total Active Users': day.total_active_users || 0,
-            'Total Engaged Users': day.total_engaged_users || 0,
-            'IDE Code Completions Users': day.ide_code_completions?.total_engaged_users || 0,
-            'IDE Chat Users': day.ide_chat?.total_engaged_users || 0,
-            'Total Chats': day.ide_chat?.total_chats || 0,
-            'Chat Insertions': day.ide_chat?.total_chat_insertions || 0
-        }));
+        // Set column widths
+        const wscols = [
+            {wch: 30}, // Column A width
+            {wch: 20}, // Column B width
+            {wch: 20}  // Column C width
+        ];
+        ws['!cols'] = wscols;
 
-        const historicalSheet = XLSX.utils.json_to_sheet(historicalData);
-        XLSX.utils.book_append_sheet(workbook, historicalSheet, 'Historical Data');
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Copilot Stats');
 
-        // Download the file
-        XLSX.writeFile(workbook, 'github_copilot_stats.xlsx');
+        // Generate Excel file
+        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `copilot-stats-${latestStats.date}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
     }
 }); 
